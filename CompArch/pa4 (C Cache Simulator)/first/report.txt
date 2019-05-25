@@ -1,0 +1,90 @@
+NAME:	Alex Eng
+NETID:	ame136
+RUID:	170000915
+
+CS 211 Computer Architecture
+Spring 2019 Ames Section 07
+
+PA4 REPORT
+
+==============================
+
+CACHE SIMULATOR IMPLEMENTATION
+
+
+1. Cache
+
+   Cache =	Set 0:	[Block 0	...	Block n]
+   	  ...       ...	       ...	  ...
+	  	    Set m      [Block 0	  ...	  ...  ]
+
+For the cache, I simply created a double array (Cache = [|Sets|][|Blocks|]) with struct definitions for sets and blocks to include some metadata for the sets and blocks. 
+
+For each set, I included the following metadata: size (current number of valid blocks), max_size (defined by associativity), pointer to the block array, and a pointer to a queue to implement the LRU algorithm (described below).
+
+For each block, I included the following data: valid_bit, tag string.
+
+The Cache supported the following operations:
+a. Insert block
+b. Evict block according to LRU algorithm (described below)
+c. Cache reads (resulting in memory reads if a miss), with and without prefetching
+d. Cache writes (resulting in memory reads if a miss), with and without prefetching
+
+
+2. LRU algorithm implemented with a Queue (one queue per set)
+
+For sets i = 1, ... , m:
+
+    Queue i = front-> Tag 0 <-> ... <-> Tag n <- rear
+
+To implement the LRU algorithm, I used a queue in the form of a doubly-linked list with front and rear pointers. Each queue node had the following data: pointers to previous and next node(s), and tag string. The queue was maintained as follows:
+
+a. The most recently used tag (Tag 0) is kept at the front of the Queue.
+b. The least recently used tag is kept at the rear of the Queue.
+c. Every access (R or W) results in a queue update:
+   i. Search for the tag of the block amongst the Queue nodes. 
+   ii. If found, move this node to the front, as it is most recently used.
+       If not found, remove the node at the rear (least recently used),
+       	  then enqueue a new node corresponding to the accessed block by 
+	       placing it at the front of the Queue (most recently used).
+
+The queue was used to inform the driver program of which blocks to evict.
+
+If the set was not full, the driver simply inserted the desired block at the first invalid/empty block, and then updated the queue.
+
+If the set was full, the driver peeked at the queue's rear to determine which block should be evicted (in accordance with the LRU algorithm), searched for this block (by tag) in the set's Block array, set it to invalid/empty, inserted the desired block here, and then updated the queue.
+
+Hence, each R or W operation resulted in the updating of both the Block arrays and Queues for the corresponding set.
+
+The Queue supported the following operations:
+a. Update Queue for a given tag
+b. Enqueue a node by block tag
+c. Dequeue the rear of the Queue
+d. Check if the Queue is empty or full
+e. Initialize the Queue and nodes
+f. Peek at the Queue's rear (LRU block) and return its tag
+
+
+3. Parsing addresses
+
+To parse the input hexadecimal addresses, I simply converted them to binary strings, pulled the tag bits as a string, and pulled the set bits as an integer (for Block array indexing purposes).
+
+
+
+==============================
+
+EFFECT OF PREFETCHING
+
+1. Observations
+
+In all test cases supplied, the cache with prefetching led to a higher hit ratio (hits / (hits + misses)) than the cache with no prefetching. 
+
+In almost all of the of test cases supplied, the cache with prefetching led to a larger number of memory reads than the cache with no prefetching.
+
+
+2. Analysis
+
+Prefetching seemed to improve the hit ratio of the cache because it took advantage of spatial and temporal locality. The memory traces showed that the programs were accessing blocks of memory in close spatial proximity to each other in close temporal proximity; that is, blocks near each other were being accessed together frequently. Thus, prefetching made sure that those close-by blocks were readily available in the cache before they needed to be accessed. The prefetched cache was able to anticipate the program's memory needs to ensure efficiency, whereas the non-prefetching cache did not have this ability.
+
+In correspondence with this, the prefetching cache obviously resulted in more net memory reads because adjacent blocks were being read into the cache for every block that missed the cache. These memory reads may present a trade-off in run-time, but the prefetching cache's ability to exploit spatial and temporal locality presents a more compelling positive to the extra reads' negative. That is, prefetching might result in more reads, but in the end, it results in greater efficiency of the cache.
+
